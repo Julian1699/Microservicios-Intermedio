@@ -1,3 +1,7 @@
 spring:
   application:
     name: ms-common-products
+
+  data:
+    mongodb:
+      uri: mongodb://mongo:mongo@localhost:27017/ms_common_products?authSource=admin
