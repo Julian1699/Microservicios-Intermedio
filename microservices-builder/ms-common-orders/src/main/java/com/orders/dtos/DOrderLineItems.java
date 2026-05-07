@@ -1,9 +1,6 @@
-package com.products.model;
+package com.orders.dtos;
 
 import java.math.BigDecimal;
-
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,18 +12,18 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Document(collection = "product")
 @EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
-public class Product {
+public class DOrderLineItems {
 
-    @Id
     @EqualsAndHashCode.Include
-    private String productId;
+    private Long orderLineItemId;
 
-    private String name;
+    private String code;
 
     private String description;
 
     private BigDecimal price;
+
+    private Integer quantity;
 
 }

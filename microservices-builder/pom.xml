@@ -7,6 +7,7 @@
     <groupId>com.builder</groupId>
     <artifactId>microservices-builder</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <name>microservices-builder</name>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -19,6 +20,7 @@
 
     <modules>
         <module>ms-common-products</module>
+        <module>ms-common-orders</module>
     </modules>
 
     <properties>
