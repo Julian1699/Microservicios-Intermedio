@@ -13,7 +13,7 @@ import com.products.dtos.DProductRequest;
 import com.products.dtos.DProductResponse;
 import com.products.model.Product;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = IGNORE)
+@Mapper(unmappedTargetPolicy = IGNORE)
 public interface ProductMapper {
 
     @Mapping(target = "productId", ignore = true)
@@ -26,6 +26,9 @@ public interface ProductMapper {
 
     default List<DProductResponse> toList(List<Product> list) {
         List<DProductResponse> responseList = new ArrayList<>();
+        if (list == null) {
+            return responseList;
+        }
         for (Product product : list) {
             responseList.add(this.toDto(product));
         }

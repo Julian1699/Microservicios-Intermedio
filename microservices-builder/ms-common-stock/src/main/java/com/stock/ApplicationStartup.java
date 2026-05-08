@@ -1,0 +1,35 @@
+package com.stock;
+
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+import com.stock.config.InsertData;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Component
+@Profile("test-data & !test")
+@RequiredArgsConstructor
+public class ApplicationStartup implements ApplicationListener<ApplicationReadyEvent> {
+
+    private final InsertData insertData;
+
+    private boolean started = false;
+
+    @Override
+    public void onApplicationEvent(ApplicationReadyEvent event) {
+        if (!started) {
+            started = true;
+            try {
+                insertData.insertData();
+            } catch (Exception ex) {
+                log.warn("There was a problem loading initial stock test data", ex);
+            }
+        }
+    }
+
+}

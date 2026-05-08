@@ -21,6 +21,7 @@
     <modules>
         <module>ms-common-products</module>
         <module>ms-common-orders</module>
+        <module>ms-common-stock</module>
     </modules>
 
     <properties>

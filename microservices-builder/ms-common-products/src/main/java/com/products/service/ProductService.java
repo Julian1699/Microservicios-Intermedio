@@ -3,7 +3,7 @@ package com.products.service;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.mapstruct.factory.Mappers;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -24,11 +24,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProductService {
 
-    @Autowired
-    private ProductRepository productRepository;
+    private final ProductRepository productRepository;
 
-    @Autowired
-    private ProductMapper productMapper;
+    private final ProductMapper productMapper = Mappers.getMapper(ProductMapper.class);
+
+    public ProductService(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
 
     public void createProduct(DProductRequest productRequest) {
         Product product = productMapper.fromDto(productRequest);

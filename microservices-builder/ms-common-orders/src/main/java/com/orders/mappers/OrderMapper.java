@@ -2,6 +2,7 @@ package com.orders.mappers;
 
 import static org.mapstruct.ReportingPolicy.IGNORE;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.mapstruct.Mapper;
@@ -13,7 +14,7 @@ import com.orders.dtos.DOrderResponse;
 import com.orders.model.Order;
 import com.orders.model.OrderLineItems;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = IGNORE)
+@Mapper(unmappedTargetPolicy = IGNORE)
 public interface OrderMapper {
 
     @Mapping(target = "orderId", ignore = true)
@@ -29,6 +30,14 @@ public interface OrderMapper {
 
     DOrderLineItems toDto(OrderLineItems entity);
 
-    List<DOrderResponse> toList(List<Order> list);
-
+    default List<DOrderResponse> toList(List<Order> list) {
+        List<DOrderResponse> responseList = new ArrayList<>();
+        if (list == null) {
+            return responseList;
+        }
+        for (Order entity : list) {
+            responseList.add(toDto(entity));
+        }
+        return responseList;
+    }
 }

@@ -3,7 +3,7 @@ package com.orders.service;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.mapstruct.factory.Mappers;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -24,14 +24,16 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional
 public class OrderService {
 
-    @Autowired
-    private OrderRepository orderRepository;
+    private final OrderRepository orderRepository;
 
-    @Autowired
-    private OrderMapper orderMapper;
+    private final OrderMapper orderMapper = Mappers.getMapper(OrderMapper.class);
 
-    public void createOrder(DOrderRequest orderRequest) {
-        Order order = orderMapper.fromDto(orderRequest);
+    public OrderService(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
+
+    public void createOrder(DOrderRequest dOrderRequest) {
+        Order order = orderMapper.fromDto(dOrderRequest);
         order.setOrderNumber(UUID.randomUUID().toString());
         orderRepository.save(order);
         log.info("An order has been successfully created here: {}", order.getOrderNumber());
