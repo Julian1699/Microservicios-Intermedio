@@ -6,3 +6,16 @@ spring:
       uri: mongodb://mongo:mongo@localhost:27017/ms_common_products?authSource=admin
 server:
   port: 8080
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    displayRequestDuration: true
+    doc-expansion: list
+    defaultModelExpandDepth: 2
+    displayOperationId: false
+    try-it-out-enabled: true

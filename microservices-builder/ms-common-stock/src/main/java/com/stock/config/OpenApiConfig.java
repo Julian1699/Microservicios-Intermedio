@@ -1,4 +1,4 @@
-package com.orders.config;
+package com.stock.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -14,20 +14,16 @@ import io.swagger.v3.oas.models.servers.Server;
 public class OpenApiConfig {
 
     @Bean
-    public OpenAPI ordersOpenApi(@Value("${server.port:8081}") String serverPort) {
+    public OpenAPI stockOpenApi(@Value("${server.port:8082}") String serverPort) {
         return new OpenAPI()
                 .info(new Info()
-                        .title("ms-common-orders — Órdenes")
+                        .title("ms-common-stock — Inventario")
                         .version("1.0")
                         .description("""
-                                API en **`/api/order`**. Creación y borrado llaman a **ms-common-stock** (`StockWebClient`).
+                                API en **`/api/stock`**. Persistencia PostgreSQL (tabla `stock`, Flyway).
 
-                                Cuando el fallo viene del cliente HTTP hacia stock (**502**, **503**, **409** propagados), \
-                                la respuesta sigue el esquema **`OrdersDependencyError`**: mismos campos que el error \
-                                por defecto de Spring más **`service`** (`ms-common-stock`) y **`message`**.
-
-                                Los **400** / **404** / **409** solo de reglas en órdenes usan el formato estándar de Spring \
-                                (sin `service`).
+                                Los códigos por operación reflejan `StockService`: **400** validación de líneas/campos; \
+                                **404** id inexistente; **409** conflicto de negocio (p. ej. descuento imposible, código duplicado).
 
                                 **UI:** `/swagger-ui.html` · **OpenAPI:** `/v3/api-docs`.""")
                         .contact(new Contact()

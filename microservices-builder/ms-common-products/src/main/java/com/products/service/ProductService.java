@@ -66,4 +66,12 @@ public class ProductService {
         log.info("A product has been successfully deleted here: {}", product.getName());
     }
 
+    public DProductResponse getProductById(String productId) {
+        Optional<Product> productOptional = productRepository.findById(productId);
+        if (!productOptional.isPresent()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with id: " + productId);
+        }
+        return productMapper.toDto(productOptional.get());
+    }
+
 }

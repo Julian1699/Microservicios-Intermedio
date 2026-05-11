@@ -10,13 +10,13 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "Movimiento de inventario: código y cantidad positiva.")
-public class DStockQuantityLine {
+@Schema(description = "Alta o actualización de una fila de stock.")
+public class DStockUpsertRequest {
 
-    @Schema(description = "Código de producto.", example = "SKU-001")
+    @Schema(description = "Código de producto; obligatorio en alta.", example = "SKU-001")
     private String code;
 
-    @Schema(description = "Unidades a mover.", example = "2")
+    @Schema(description = "Unidades; obligatorio en alta.", example = "100")
     private Integer quantity;
 
 }

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -145,6 +146,39 @@ public class OrderService {
         Page<Order> orders = orderRepository.findAll(pageable);
         List<DOrderResponse> dOrderResponseList = orderMapper.toList(orders.getContent());
         return new PageImpl<>(dOrderResponseList, pageable, orders.getTotalElements());
+    }
+
+    public DOrderResponse getOrderById(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Orden no encontrada: " + orderId));
+        return orderMapper.toDto(order);
+    }
+
+    public DOrderResponse getOrderByOrderNumber(String orderNumber) {
+        if (!StringUtils.hasText(orderNumber)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El número de orden es obligatorio.");
+        }
+        Optional<Order> orderOptional = orderRepository.findByOrderNumber(orderNumber.trim());
+        if (orderOptional.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Orden no encontrada con número: " + orderNumber);
+        }
+        return orderMapper.toDto(orderOptional.get());
+    }
+
+    /**
+     * Elimina la orden y devuelve al inventario las cantidades de sus líneas persistidas.
+     */
+    public void deleteOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Orden no encontrada: " + orderId));
+        Map<String, Integer> quantitiesToRestore = aggregateRequestedQuantity(order.getOrderLineItems());
+        if (!quantitiesToRestore.isEmpty()) {
+            stockWebClient.restoreQuantities(quantitiesToRestore);
+        }
+        orderRepository.delete(order);
+        log.info("deleteOrder: orden eliminada y stock restaurado. orderId={} orderNumber={}",
+        orderId, order.getOrderNumber());
     }
 
 }

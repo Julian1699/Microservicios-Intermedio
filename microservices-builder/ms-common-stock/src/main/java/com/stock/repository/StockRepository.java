@@ -17,6 +17,10 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
 
     List<Stock> findByCodeIn(Collection<String> codes);
 
+    boolean existsByCode(String code);
+
+    boolean existsByCodeAndStockIdNot(String code, Long stockId);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Stock stock SET stock.quantity = stock.quantity - :quantity WHERE stock.code = :productCode AND stock.quantity >= :quantity")
     int decreaseQuantity(@Param("productCode") String productCode, @Param("quantity") int quantity);

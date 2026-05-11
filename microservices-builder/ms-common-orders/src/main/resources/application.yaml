@@ -22,10 +22,6 @@ stock:
       codes: /api/stock/codes
       deduct: /api/stock/deduct
       restore: /api/stock/restore
-logging:
-  level:
-    com.orders.service.OrderService: INFO
-
 # OpenAPI / Swagger UI (SpringDoc)
 springdoc:
   api-docs:
@@ -35,3 +31,7 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
     displayRequestDuration: true
+    doc-expansion: list
+    defaultModelExpandDepth: 2
+    displayOperationId: false
+    try-it-out-enabled: true

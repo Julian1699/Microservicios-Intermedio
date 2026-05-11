@@ -1,4 +1,4 @@
-package com.orders.config;
+package com.products.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -14,20 +14,17 @@ import io.swagger.v3.oas.models.servers.Server;
 public class OpenApiConfig {
 
     @Bean
-    public OpenAPI ordersOpenApi(@Value("${server.port:8081}") String serverPort) {
+    public OpenAPI productsOpenApi(@Value("${server.port:8080}") String serverPort) {
         return new OpenAPI()
                 .info(new Info()
-                        .title("ms-common-orders — Órdenes")
+                        .title("ms-common-products — Catálogo")
                         .version("1.0")
                         .description("""
-                                API en **`/api/order`**. Creación y borrado llaman a **ms-common-stock** (`StockWebClient`).
+                                API REST sobre **MongoDB** (colección `product`). Base: **`/api/product`**.
 
-                                Cuando el fallo viene del cliente HTTP hacia stock (**502**, **503**, **409** propagados), \
-                                la respuesta sigue el esquema **`OrdersDependencyError`**: mismos campos que el error \
-                                por defecto de Spring más **`service`** (`ms-common-stock`) y **`message`**.
-
-                                Los **400** / **404** / **409** solo de reglas en órdenes usan el formato estándar de Spring \
-                                (sin `service`).
+                                Los códigos HTTP documentados en cada operación coinciden con lo que lanza el código \
+                                (`ResponseStatusException` → 404) o Spring MVC (JSON ilegible → 400). \
+                                No hay validación Bean Validation en controladores; no se declaran 400 “de negocio” inventados.
 
                                 **UI:** `/swagger-ui.html` · **OpenAPI:** `/v3/api-docs`.""")
                         .contact(new Contact()
