@@ -1,7 +1,6 @@
 package com.stock.config;
 
 import static com.fasterxml.jackson.core.JsonGenerator.Feature.IGNORE_UNKNOWN;
-import static java.util.Arrays.stream;
 
 import java.io.File;
 import java.util.Collections;
@@ -36,20 +35,29 @@ public class InsertData {
 
     public void insertData() {
         log.info("Start processing stock seed data");
-        stream(environment.getActiveProfiles())
-                .filter(TEST_DATA_PROFILE::equals)
-                .findAny()
-                .ifPresent(profile -> generateInitialConfiguration(Stock.class, STOCK_CSV)
-                        .stream()
-                        .filter(stock -> stockRepository.findByCode(stock.getCode()).isEmpty())
-                        .forEach(stock -> {
-                            try {
-                                stockRepository.save(stock);
-                            } catch (Exception ex) {
-                                log.warn("Can not create stock with code {}", stock.getCode());
-                            }
-                        }));
+        if (isProfileActive(TEST_DATA_PROFILE)) {
+            List<Stock> fromCsv = generateInitialConfiguration(Stock.class, STOCK_CSV);
+            for (Stock stock : fromCsv) {
+                if (stockRepository.findByCode(stock.getCode()).isPresent()) {
+                    continue;
+                }
+                try {
+                    stockRepository.save(stock);
+                } catch (Exception exception) {
+                    log.warn("Can not create stock with code {}", stock.getCode(), exception);
+                }
+            }
+        }
         log.info("Finish processing stock seed data");
+    }
+
+    private boolean isProfileActive(String profileName) {
+        for (String profile : environment.getActiveProfiles()) {
+            if (profileName.equals(profile)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private <T> List<T> generateInitialConfiguration(Class<T> type, String fileName) {
@@ -63,8 +71,8 @@ public class InsertData {
                     .with(CsvSchema.emptySchema().withHeader())
                     .readValues(file);
             return readValues.readAll();
-        } catch (Exception ex) {
-            log.error("Error occurred while loading object list from file {}", fileName, ex);
+        } catch (Exception exception) {
+            log.error("Error occurred while loading object list from file {}", fileName, exception);
         }
         return Collections.emptyList();
     }

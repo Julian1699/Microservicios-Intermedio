@@ -22,4 +22,7 @@ public class DOrderResponse {
 
     private List<DOrderLineItems> orderLineItemsList;
 
+    /** Presente al crear una orden cuando se omitieron líneas por inventario (resto de líneas sí se guardaron). */
+    private List<String> inventoryExclusions;
+
 }
