@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 
 @Data
 @Entity
-@Builder
+@Builder(toBuilder = true)
 @Table(name = "orders")
 @AllArgsConstructor
 @NoArgsConstructor

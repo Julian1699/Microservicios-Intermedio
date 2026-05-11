@@ -13,18 +13,24 @@ import reactor.netty.http.client.HttpClient;
 @Configuration
 public class WebClientConfig {
 
-    /** Bean {@code stockRestClient}: cliente HTTP de bajo nivel hacia ms-common-stock (inyectado en {@link StockWebClient}). */
+    /**
+     * Cliente HTTP hacia ms-common-stock.
+     * <p>
+     * Aquí se centraliza el <strong>único</strong> timeout de red para ese servicio:
+     * {@link HttpClient#responseTimeout(Duration)} con {@code stock.service.timeout-ms} del YAML.
+     * {@link StockWebClient} no vuelve a leer el timeout: usa {@code Mono.block()} y deja que el transporte
+     * cancele la petición cuando venza ese límite.
+     */
     @Bean(name = "stockRestClient")
     public WebClient stockRestClient(
             WebClient.Builder builder,
-            @Value("${stock.service.base-url:http://localhost:8082}") String baseUrl,
-            @Value("${stock.service.timeout-ms:10000}") long timeoutMilliseconds) {
+            @Value("${stock.service.base-url:http://localhost:8082}") String stockServiceBaseUrl,
+            @Value("${stock.service.timeout-ms:10000}") long stockServiceTimeoutMilliseconds) {
         HttpClient httpClient = HttpClient.create()
-                .responseTimeout(Duration.ofMillis(timeoutMilliseconds));
+                .responseTimeout(Duration.ofMillis(stockServiceTimeoutMilliseconds));
         return builder
-                .baseUrl(baseUrl)
+                .baseUrl(stockServiceBaseUrl)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();
     }
-
 }

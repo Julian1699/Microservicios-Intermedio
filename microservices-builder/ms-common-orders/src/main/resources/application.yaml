@@ -13,11 +13,25 @@ spring:
     show-sql: true
 server:
   port: 8081
-# Cliente HTTP hacia ms-common-stock (inventario)
+# Integración HTTP con ms-common-stock (WebClientConfig + StockWebClient leen estas claves)
 stock:
   service:
     base-url: http://localhost:8082
     timeout-ms: 10000
+    paths:
+      codes: /api/stock/codes
+      deduct: /api/stock/deduct
+      restore: /api/stock/restore
 logging:
   level:
     com.orders.service.OrderService: INFO
+
+# OpenAPI / Swagger UI (SpringDoc)
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    displayRequestDuration: true

@@ -49,7 +49,7 @@ public class OrderService {
 
     public DOrderResponse createOrder(DOrderRequest dOrderRequest) {
         Order order = orderMapper.fromDto(dOrderRequest);
-        order = order.builder()
+        order = order.toBuilder()
                 .orderNumber(UUID.randomUUID().toString())
                 .build();
         Map<String, Integer> requestedQuantityByProductCode = aggregateRequestedQuantity(order.getOrderLineItems());
@@ -82,7 +82,7 @@ public class OrderService {
             keptOrderLines.size(), inventoryEligibility.skippedLineReasons(), order.getOrderNumber());
         }
         Map<String, Integer> quantitiesToDeductByProductCode = aggregateRequestedQuantity(keptOrderLines);
-        order = order.builder()
+        order = order.toBuilder()
                 .orderLineItems(keptOrderLines)
                 .build();
         boolean inventoryDeducted = false;
@@ -105,7 +105,7 @@ public class OrderService {
         order.getOrderNumber(), keptOrderLines.size());
         DOrderResponse dOrderResponse = orderMapper.toDto(order);
         if (!inventoryEligibility.skippedLineReasons().isEmpty()) {
-            dOrderResponse = dOrderResponse.builder()
+            dOrderResponse = dOrderResponse.toBuilder()
                     .inventoryExclusions(inventoryEligibility.skippedLineReasons())
                     .build();
         }
