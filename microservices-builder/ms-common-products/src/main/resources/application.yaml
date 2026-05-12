@@ -4,9 +4,10 @@ spring:
   data:
     mongodb:
       uri: mongodb://mongo:mongo@localhost:27017/ms_common_products?authSource=admin
+---
 server:
   port: 8080
-
+---
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -19,3 +20,8 @@ springdoc:
     defaultModelExpandDepth: 2
     displayOperationId: false
     try-it-out-enabled: true
+---
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8083/eureka

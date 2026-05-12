@@ -17,9 +17,10 @@ spring:
     baseline-version: 0
     out-of-order: true
     table: flyway_migration_ms_common_stock
+---
 server:
   port: 8082
-
+---
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -32,9 +33,14 @@ springdoc:
     defaultModelExpandDepth: 2
     displayOperationId: false
     try-it-out-enabled: true
-
 ---
 spring:
   config:
     activate:
       on-profile: test-data
+---
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8083/eureka
+

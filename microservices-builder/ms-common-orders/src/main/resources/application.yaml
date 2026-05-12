@@ -11,8 +11,10 @@ spring:
       ddl-auto: update
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     show-sql: true
+---
 server:
   port: 8081
+---
 # Integración HTTP con ms-common-stock (WebClientConfig + StockWebClient leen estas claves)
 stock:
   service:
@@ -22,6 +24,7 @@ stock:
       codes: /api/stock/codes
       deduct: /api/stock/deduct
       restore: /api/stock/restore
+---
 # OpenAPI / Swagger UI (SpringDoc)
 springdoc:
   api-docs:
@@ -35,3 +38,8 @@ springdoc:
     defaultModelExpandDepth: 2
     displayOperationId: false
     try-it-out-enabled: true
+---
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8083/eureka
