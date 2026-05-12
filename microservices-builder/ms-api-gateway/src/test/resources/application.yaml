@@ -1,0 +1,6 @@
+# Tests sin Eureka real
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false

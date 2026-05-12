@@ -20,6 +20,7 @@
 
     <modules>
         <module>ms-discovery-server</module>
+        <module>ms-api-gateway</module>
         <module>ms-common-orders</module>
         <module>ms-common-stock</module>
         <module>ms-common-products</module>

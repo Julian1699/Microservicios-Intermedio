@@ -12,6 +12,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     show-sql: true
 ---
+# port: ${SERVER_PORT:0} == 0 = puerto libre aleatorio (varias instancias en local). Override: -Dserver.port=8081 o variable SERVER_PORT
 server:
   port: 8081
 ---
@@ -43,3 +44,5 @@ eureka:
   client:
     service-url:
       defaultZone: http://localhost:8083/eureka
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}

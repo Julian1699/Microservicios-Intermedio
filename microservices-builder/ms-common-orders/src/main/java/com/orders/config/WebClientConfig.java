@@ -3,6 +3,7 @@ package com.orders.config;
 import java.time.Duration;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -22,6 +23,7 @@ public class WebClientConfig {
      * cancele la petición cuando venza ese límite.
      */
     @Bean(name = "stockRestClient")
+    @LoadBalanced
     public WebClient stockRestClient(
             WebClient.Builder builder,
             @Value("${stock.service.base-url:http://localhost:8082}") String stockServiceBaseUrl,

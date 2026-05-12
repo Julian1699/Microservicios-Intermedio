@@ -11,6 +11,7 @@ microservicios-intermedio/
 └── microservices-builder/   # POM padre (agrupa todos los módulos)
     ├── pom.xml              # BOM Spring Cloud + lista de módulos
     ├── ms-discovery-server/ # Eureka (Netflix), descubrimiento de servicios
+    ├── ms-api-gateway/      # Spring Cloud Gateway (rutas lb:// + proxy Eureka)
     ├── ms-common-products/  # Catálogo (MongoDB)
     ├── ms-common-stock/     # Inventario (PostgreSQL + Flyway)
     └── ms-common-orders/    # Órdenes (PostgreSQL); llama a stock por HTTP
@@ -20,14 +21,45 @@ microservicios-intermedio/
 
 ## Puertos por defecto (desarrollo local)
 
-| Servicio            | Puerto   | Rol principal                 |
-|---------------------|----------|-------------------------------|
-| ms-common-orders    | **8081** | API de órdenes (`/api/order`) |
+| Servicio            | Puerto   | Rol principal |
+|---------------------|----------|---------------|
+| ms-api-gateway      | **9090** | Punto de entrada: `/api/product/**`, `/api/order/**`, `/api/stock/**`, y rutas `/eureka/...` hacia el panel en 8083 |
+| ms-common-products  | **8080** | API productos (`/api/product/...`) |
+| ms-common-orders    | **8081** | API órdenes (`/api/order/...`) |
 | ms-common-stock     | **8082** | Inventario (`/api/stock/...`) |
-| ms-common-products  | **8080** | Productos                     |
-| ms-discovery-server | **8083** | Panel Eureka                  |
+| ms-discovery-server | **8083** | Eureka: registro de servicios + panel web |
 
-Las URLs base que **orders** usa para hablar con **stock** están en `ms-common-orders` → `application.yaml` (`stock.service.base-url`, típicamente `http://localhost:8082`).
+No hay choque de puertos: **8080–8083** micros y descubrimiento; **9090** solo el gateway.
+
+**Orders → stock** sigue yendo en directo a stock según `stock.service.base-url` (por defecto `http://localhost:8082` en `ms-common-orders`). El gateway **no** cambia eso; solo afecta a quien llame a la API pública por `http://localhost:9090/...`.
+
+---
+
+## API Gateway (`ms-api-gateway`, puerto **9090**)
+
+El **API Gateway** es el **único punto de entrada HTTP** que quieres dar a clientes externos (Postman): misma familia de rutas que ya tienen los micros (`/api/product/...`, `/api/order/...`, `/api/stock/...`), pero el host y el puerto son siempre **`http://localhost:9090`**.
+
+### Qué logra (objetivo)
+
+- **Una base URL** para “enmascarar” el reparto: tú llamas `http://localhost:9090/api/order`, el gateway elige una instancia de **ms-common-orders** registrada en Eureka (`lb://ms-common-orders`) y reenvía la petición.
+- **Descubrimiento + balanceo** hacia réplicas del mismo servicio, sin que el cliente conozca 8081, 557xx, etc.
+- **Proxy opcional al panel Eureka** bajo el mismo origen: `http://localhost:9090/eureka/web` (y `/eureka/**` para recursos estáticos del servidor en **8083**).
+
+No sustituye a Eureka ni a los micros: deben estar levantados y registrados; el gateway solo **enruta**.
+
+### Ejemplos (desarrollo local)
+
+| Acción | URL vía gateway |
+|--------|------------------|
+| Crear orden | `POST http://localhost:9090/api/order` |
+| Listar órdenes | `GET http://localhost:9090/api/order` |
+| Stock (p. ej. códigos) | `GET http://localhost:9090/api/stock/codes?...` |
+| Productos | `GET` / `POST` `http://localhost:9090/api/product` … |
+| Panel Eureka | `http://localhost:9090/eureka/web` |
+
+Llamar **directo** a `http://localhost:8081/...` sigue siendo válido para depurar una sola instancia; para el comportamiento “curso / producción simplificada”, usa **9090**.
+
+Configuración: `microservices-builder/ms-api-gateway/src/main/resources/application.yaml` (`server.port`, rutas `spring.cloud.gateway.server.webmvc.routes`).
 
 ---
 
@@ -151,6 +183,8 @@ Con cada micro levantado:
 - Órdenes: `http://localhost:8081/swagger-ui.html`
 - Stock: `http://localhost:8082/swagger-ui.html`
 - Productos: `http://localhost:8080/swagger-ui.html`
+
+El **API Gateway (9090)** no expone por defecto una Swagger unificada; la documentación interactiva sigue en cada micro en su puerto directo. Las llamadas REST de negocio sí pueden ir por `http://localhost:9090/api/...` (ver sección API Gateway arriba).
 
 La descripción de códigos de respuesta del **POST crear orden** está anotada en `OrderController` (OpenAPI).
 

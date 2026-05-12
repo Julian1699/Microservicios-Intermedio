@@ -1,0 +1,69 @@
+# ms-api-gateway — puerto 9090 (desarrollo local)
+#
+# Objetivo: un solo origen HTTP (http://localhost:9090) para consumir las APIs públicas.
+# Las rutas reenvían al micro correcto vía lb:// + Eureka; el cliente no necesita saber
+# los puertos 8080/8081/8082. Las rutas /eureka/* proxifican el panel de Eureka (8083).
+#
+# Cambiar puerto: server.port (abajo) o variable de entorno SERVER_PORT al arrancar.
+#
+spring:
+  application:
+    name: ms-api-gateway
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            # Productos (Mongo)
+            - id: ms-common-products-root
+              uri: lb://ms-common-products
+              predicates:
+                - Path=/api/product
+            - id: ms-common-products-api
+              uri: lb://ms-common-products
+              predicates:
+                - Path=/api/product/**
+            # Órdenes — ms-common-orders (ruta exacta + prefijo: algunos setups solo matchean uno u otro)
+            - id: ms-common-orders-root
+              uri: lb://ms-common-orders
+              predicates:
+                - Path=/api/order
+            - id: ms-common-orders-api
+              uri: lb://ms-common-orders
+              predicates:
+                - Path=/api/order/**
+            # Stock
+            - id: ms-common-stock-root
+              uri: lb://ms-common-stock
+              predicates:
+                - Path=/api/stock
+            - id: ms-common-stock-api
+              uri: lb://ms-common-stock
+              predicates:
+                - Path=/api/stock/**
+            # Consola Eureka vía gateway (mismo patrón que el curso; Eureka en 8083 en este repo)
+            - id: discovery-server-web
+              uri: http://localhost:8083
+              predicates:
+                - Path=/eureka/web
+              filters:
+                - SetPath=/
+            - id: discovery-server-static
+              uri: http://localhost:8083
+              predicates:
+                - Path=/eureka/**
+---
+# Puerto del gateway en local (documentado también en README raíz).
+# Eureka (ms-discovery-server) usa 8083; no asignar el mismo puerto aquí.
+server:
+  port: ${SERVER_PORT:9090}
+---
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8083/eureka
+---
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
