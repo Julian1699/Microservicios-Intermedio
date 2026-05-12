@@ -92,6 +92,8 @@ public class StockWebClient {
             return new StockEligibility(Set.of(), List.of());
         }
         List<String> productCodes = new ArrayList<>(requestedQuantityByProductCode.keySet());
+        log.info("[stock] evaluateEligibility: GET {} — {} códigos distintos (demanda ya agregada por código)",
+        stockCodesPath, productCodes.size());
         List<DStockResponse> dStockResponses = fetchStockRows(productCodes);
         Map<String, DStockResponse> dStockResponseByProductCode = indexStockByProductCode(dStockResponses);
         Set<String> eligibleProductCodes = new HashSet<>();
@@ -117,6 +119,8 @@ public class StockWebClient {
                 eligibleProductCodes.add(productCode);
             }
         }
+        log.info("[stock] evaluateEligibility: fin — elegibles={} exclusiones={}",
+        eligibleProductCodes.size(), skippedInventoryReasons.size());
         return new StockEligibility(eligibleProductCodes, skippedInventoryReasons);
     }
 
@@ -133,6 +137,7 @@ public class StockWebClient {
         if (quantitiesByProductCode == null || quantitiesByProductCode.isEmpty()) {
             return;
         }
+        log.info("[stock] deductQuantities: POST {} — {} códigos a descontar", stockDeductPath, quantitiesByProductCode.size());
         postWithoutResponseBody(stockDeductPath, dStockQuantityLinesFromMap(quantitiesByProductCode), "deduct");
     }
 
@@ -148,6 +153,7 @@ public class StockWebClient {
         if (quantitiesByProductCode == null || quantitiesByProductCode.isEmpty()) {
             return;
         }
+        log.info("[stock] restoreQuantities: POST {} — {} códigos a devolver", stockRestorePath, quantitiesByProductCode.size());
         postWithoutResponseBody(stockRestorePath, dStockQuantityLinesFromMap(quantitiesByProductCode), "restore");
     }
 
@@ -200,6 +206,7 @@ public class StockWebClient {
                     .retrieve()
                     .bodyToMono(Void.class)
                     .block();
+            log.info("[stock] POST {} ({}) OK — {} líneas en el cuerpo", path, operationLabel, dStockQuantityLines.size());
         } catch (WebClientResponseException webClientException) {
             String errorResponseBody = webClientException.getResponseBodyAsString();
             log.error("ms-common-stock POST {} -> HTTP {} body={}",
@@ -237,7 +244,7 @@ public class StockWebClient {
      * @throws UpstreamDependencyException {@code 502} error HTTP del GET; {@code 503} sin conexión / timeout
      */
     private List<DStockResponse> fetchStockRows(List<String> productCodes) {
-        log.debug("GET {} codes={}", stockCodesPath, productCodes);
+        log.info("[stock] fetchStockRows: GET {} — codes={}", stockCodesPath, productCodes);
         try {
             List<DStockResponse> dStockResponses = stockRestClient.get()
                     .uri(uriBuilder -> uriBuilder

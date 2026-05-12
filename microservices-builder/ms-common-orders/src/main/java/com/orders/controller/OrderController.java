@@ -26,6 +26,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/order")
 @Tag(
@@ -80,6 +83,9 @@ public class OrderController {
                     required = true,
                     content = @Content(schema = @Schema(implementation = DOrderRequest.class)))
             @RequestBody DOrderRequest dOrderRequest) {
+        int lineCount = dOrderRequest != null && dOrderRequest.getOrderLineItemsList() != null
+        ? dOrderRequest.getOrderLineItemsList().size() : 0;
+        log.info("POST /api/order: inicio createOrder ({} líneas en el cuerpo)", lineCount);
         return orderService.createOrder(dOrderRequest);
     }
 

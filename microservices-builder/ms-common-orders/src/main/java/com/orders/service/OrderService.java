@@ -49,19 +49,26 @@ public class OrderService {
     }
 
     public DOrderResponse createOrder(DOrderRequest dOrderRequest) {
+        // 1) DTO → entidad de dominio y número de orden único (aún no hay persistencia en BD).
         Order order = orderMapper.fromDto(dOrderRequest);
         order = order.toBuilder()
                 .orderNumber(UUID.randomUUID().toString())
                 .build();
+        log.info("createOrder: orden preparada en memoria. orderNumber={}", order.getOrderNumber());
+        // 2) Por cada código de producto, sumamos cantidades (varias líneas pueden repetir el mismo SKU).
         Map<String, Integer> requestedQuantityByProductCode = aggregateRequestedQuantity(order.getOrderLineItems());
         if (requestedQuantityByProductCode.isEmpty()) {
             log.warn("createOrder rechazada: sin códigos/cantidades válidas. orderNumber={}", order.getOrderNumber());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
             "La orden debe incluir códigos de producto y cantidad mayor a cero en cada línea.");
         }
-        log.info("createOrder: validando inventario. orderNumber={} demandaPorCodigo={}",
-        order.getOrderNumber(), requestedQuantityByProductCode);
+        // 3) Solo lectura en ms-common-stock: GET /api/stock/codes → compara demanda vs cantidad en almacén.
+        log.info("createOrder: validando inventario (solo lectura). orderNumber={} demandaPorCodigo={}",
+                order.getOrderNumber(), requestedQuantityByProductCode);
         StockEligibility inventoryEligibility = stockWebClient.evaluateEligibility(requestedQuantityByProductCode);
+        log.info("createOrder: resultado elegibilidad. orderNumber={} codigosOk={} exclusiones={}",
+        order.getOrderNumber(), inventoryEligibility.eligibleCodes().size(), inventoryEligibility.skippedLineReasons().size());
+        // 4) Nos quedamos solo con líneas cuyo código pasó el filtro; el resto queda documentado en inventoryExclusions.
         List<OrderLineItems> keptOrderLines = new ArrayList<>();
         for (OrderLineItems orderLineItem : order.getOrderLineItems()) {
             String productCode = orderLineItem.getCode() != null ? orderLineItem.getCode().trim() : "";
@@ -86,15 +93,22 @@ public class OrderService {
         order = order.toBuilder()
                 .orderLineItems(keptOrderLines)
                 .build();
+        // 5) Escritura en stock (atómica por código) y luego persistencia de la orden. Si falla el save, restore compensa el deduct.
+        log.info("createOrder: descontando stock vía POST deduct. orderNumber={} mapaDescuento={}",
+        order.getOrderNumber(), quantitiesToDeductByProductCode);
         boolean inventoryDeducted = false;
         try {
             stockWebClient.deductQuantities(quantitiesToDeductByProductCode);
             inventoryDeducted = true;
+            log.info("createOrder: deduct OK en stock; persistiendo orden en BD. orderNumber={}", order.getOrderNumber());
             orderRepository.save(order);
         } catch (RuntimeException runtimeException) {
             if (inventoryDeducted) {
+                log.warn("createOrder: falló persistencia tras deduct; intentando restore en stock. orderNumber={}",
+                order.getOrderNumber());
                 try {
                     stockWebClient.restoreQuantities(quantitiesToDeductByProductCode);
+                    log.info("createOrder: restore de compensación enviado a stock. orderNumber={}", order.getOrderNumber());
                 } catch (Exception restoreException) {
                     log.error("Compensación de inventario fallida tras error al guardar orden {}: {}",
                     order.getOrderNumber(), restoreException.getMessage(), restoreException);
@@ -104,6 +118,7 @@ public class OrderService {
         }
         log.info("createOrder: orden guardada e inventario descontado. orderNumber={} lineas={}",
         order.getOrderNumber(), keptOrderLines.size());
+        // 6) Respuesta REST: la orden persistida; si hubo exclusiones en el paso 4, se exponen en inventoryExclusions.
         DOrderResponse dOrderResponse = orderMapper.toDto(order);
         if (!inventoryEligibility.skippedLineReasons().isEmpty()) {
             dOrderResponse = dOrderResponse.toBuilder()
