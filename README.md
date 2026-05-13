@@ -27,7 +27,11 @@ microservicios-intermedio/
 | ms-common-products  | **8080** | API productos (`/api/product/...`) |
 | ms-common-orders    | **8081** | API órdenes (`/api/order/...`) |
 | ms-common-stock     | **8082** | Inventario (`/api/stock/...`) |
-| ms-discovery-server | **8083** | Eureka: registro de servicios + panel web |
+| ms-discovery-server | **8083** | Eureka: registro + panel web (**HTTP Basic** por defecto `eureka` / `password`; ver `ms-discovery-server` → `application.yaml`) |
+
+Los micros y el gateway registran en Eureka con `defaultZone: http://eureka:password@localhost:8083/eureka` (mismas credenciales).
+
+**Nota:** si cambias usuario o contraseña de Eureka, actualízalos en **todos** los `defaultZone` y en las rutas `uri:` del gateway hacia el discovery server.
 
 No hay choque de puertos: **8080–8083** micros y descubrimiento; **9090** solo el gateway.
 

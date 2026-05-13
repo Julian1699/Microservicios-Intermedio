@@ -41,17 +41,23 @@ spring:
               uri: lb://ms-common-stock
               predicates:
                 - Path=/api/stock/**
-            # Consola Eureka vía gateway (mismo patrón que el curso; Eureka en 8083 en este repo)
+            # Consola Eureka vía gateway (credenciales en URI: el servidor Eureka usa HTTP Basic)
             - id: discovery-server-web
-              uri: http://localhost:8083
+              uri: http://eureka:password@localhost:8083
               predicates:
                 - Path=/eureka/web
               filters:
                 - SetPath=/
             - id: discovery-server-static
-              uri: http://localhost:8083
+              uri: http://eureka:password@localhost:8083
               predicates:
                 - Path=/eureka/**
+  # Keycloak (realm) — issuer para validar JWT; debe coincidir con el realm en Keycloak (puerto host del contenedor, p. ej. 8180)
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/spring-boot-microservices-realm
 ---
 # Puerto del gateway en local (documentado también en README raíz).
 # Eureka (ms-discovery-server) usa 8083; no asignar el mismo puerto aquí.
@@ -61,7 +67,8 @@ server:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8083/eureka
+      # Mismo usuario/contraseña que spring.security.user en ms-discovery-server
+      defaultZone: http://eureka:password@localhost:8083/eureka
 ---
 logging:
   level:

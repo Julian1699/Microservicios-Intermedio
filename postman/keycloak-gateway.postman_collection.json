@@ -1,0 +1,75 @@
+{
+  "info": {
+    "_postman_id": "keycloak-gateway-collection",
+    "name": "Keycloak + API Gateway (9090)",
+    "description": "## Dónde editar qué\n\n### En Postman (después de Import)\n1. Colección → pestaña **Variables**.\n2. Cambia solo: **client_secret** (secreto de tu cliente en Keycloak). El resto ya viene para tu realm local.\n3. Ejecuta en orden: **1. Token (client credentials)** → luego **2. GET productos vía gateway**.\n\nEl script del paso 1 guarda **access_token** en variables de colección para el paso 2.\n\n### En Keycloak (Admin Console)\nCliente **spring-cloud-client** (o el que uses):\n- **Client authentication** = ON (confidential).\n- **Service accounts roles** = ON (necesario para *client credentials*).\n- **Authentication flow**: habilitado **Client credentials**.\n- Copia el **Client secret** a la variable Postman **client_secret**.\n\nSi usas otro **Client ID** o **realm**, edita las variables **client_id** y **realm** en la colección.\n\n### URLs fijas (no las inventes en Postman)\n- Token: `{{keycloak_base}}/realms/{{realm}}/protocol/openid-connect/token`\n- Gateway: `{{gateway_base}}/api/product`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "keycloak_base", "value": "http://localhost:8180" },
+    { "key": "realm", "value": "spring-boot-microservices-realm" },
+    { "key": "gateway_base", "value": "http://localhost:9090" },
+    { "key": "client_id", "value": "spring-cloud-client" },
+    { "key": "client_secret", "value": "o3Dk5YeAS91MKUNaBjeyPsiMdy9dKhBk" },
+    { "key": "access_token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Token (client credentials)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const j = pm.response.json();",
+              "    if (j.access_token) {",
+              "        pm.collectionVariables.set('access_token', j.access_token);",
+              "        console.log('access_token guardado en variable de colección');",
+              "    } else {",
+              "        console.error('No hay access_token en la respuesta', j);",
+              "    }",
+              "} else {",
+              "    console.error('Error token', pm.response.code, pm.response.text());",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "client_credentials", "type": "text" },
+            { "key": "client_id", "value": "{{client_id}}", "type": "text" },
+            { "key": "client_secret", "value": "{{client_secret}}", "type": "text" }
+          ]
+        },
+        "url": "{{keycloak_base}}/realms/{{realm}}/protocol/openid-connect/token",
+        "description": "POST form-urlencoded. No uses la pestaña OAuth 2.0 del request: aquí está todo explícito.\n\n**Qué debes tener en Keycloak** para que esto devuelva 200:\n- Cliente confidential con **Service accounts** habilitado.\n- Grant **Client credentials** permitido para ese cliente."
+      },
+      "response": []
+    },
+    {
+      "name": "2. GET productos vía gateway",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            { "key": "token", "value": "{{access_token}}", "type": "string" }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": "{{gateway_base}}/api/product",
+        "description": "Ejecuta **solo después** del request 1 (para que exista `access_token`).\n\nSi recibes 401: vuelve a ejecutar el paso 1 o revisa que **issuer** del JWT coincida con el `issuer-uri` del gateway (`http://localhost:8180/realms/spring-boot-microservices-realm`)."
+      },
+      "response": []
+    }
+  ]
+}

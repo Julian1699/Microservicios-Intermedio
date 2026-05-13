@@ -24,4 +24,4 @@ springdoc:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8083/eureka
+      defaultZone: http://eureka:password@localhost:8083/eureka
