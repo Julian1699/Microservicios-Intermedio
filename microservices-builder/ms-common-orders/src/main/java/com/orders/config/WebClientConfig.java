@@ -7,12 +7,22 @@ import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.reactive.function.client.ClientRequestObservationConvention;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import reactor.netty.http.client.HttpClient;
 
 @Configuration
 public class WebClientConfig {
+
+    /**
+     * Nombres de span cliente en Zipkin: prefijo {@code webclient} + método + ruta (p. ej. {@code webclient get /api/stock/query/codes}),
+     * distinto de los spans servidor {@code http …} del mismo micro.
+     */
+    @Bean
+    ClientRequestObservationConvention descriptiveClientRequestObservationConvention() {
+        return new DescriptiveClientRequestObservationConvention();
+    }
 
     /**
      * Cliente HTTP hacia ms-common-stock.

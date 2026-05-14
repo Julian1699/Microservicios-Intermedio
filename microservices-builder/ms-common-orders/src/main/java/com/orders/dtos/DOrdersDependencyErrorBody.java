@@ -32,7 +32,7 @@ public class DOrdersDependencyErrorBody {
     @Schema(description = "Detalle del problema.", example = "No se pudo consultar inventario")
     String message;
 
-    @Schema(description = "Ruta del endpoint en ms-common-orders que recibió la petición.", example = "/api/order")
+    @Schema(description = "Ruta del endpoint en ms-common-orders que recibió la petición.", example = "/api/order/create")
     String path;
 
     @Schema(description = "Instante ISO-8601.", example = "2026-05-11T04:49:34.889+00:00")

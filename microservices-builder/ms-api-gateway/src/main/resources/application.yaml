@@ -67,3 +67,20 @@ logging:
   level:
     root: INFO
     org.springframework.cloud.gateway: DEBUG
+---
+# Trazas → Zipkin: Micrometer Tracing + Brave (micrometer-tracing-bridge-brave, zipkin-reporter-brave, Actuator).
+# Endpoint: management.zipkin.tracing.endpoint; variable ZIPKIN_ENDPOINT (URL completa …/api/v2/spans).
+# Zipkin en Docker en el host: -p 9411:9411 → por defecto localhost. En Compose misma red: ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans
+# Muestreo: TRACING_SAMPLE_PROBABILITY (0.0–1.0). Guía: README del repositorio («Trazas distribuidas y Zipkin»).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLE_PROBABILITY:1.0}
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+

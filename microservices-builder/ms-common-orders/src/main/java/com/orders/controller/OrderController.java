@@ -44,7 +44,7 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    @PostMapping
+    @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
             summary = "Crear orden",
@@ -85,11 +85,11 @@ public class OrderController {
             @RequestBody DOrderRequest dOrderRequest) {
         int lineCount = dOrderRequest != null && dOrderRequest.getOrderLineItemsList() != null
         ? dOrderRequest.getOrderLineItemsList().size() : 0;
-        log.info("POST /api/order: inicio createOrder ({} líneas en el cuerpo)", lineCount);
+        log.info("POST /api/order/create: inicio createOrder ({} líneas en el cuerpo)", lineCount);
         return orderService.createOrder(dOrderRequest);
     }
 
-    @GetMapping
+    @GetMapping("/list")
     @ResponseStatus(HttpStatus.OK)
     @Operation(
             summary = "Listar órdenes (paginado)",
@@ -123,7 +123,7 @@ public class OrderController {
         return orderService.getOrderByOrderNumber(orderNumber);
     }
 
-    @GetMapping("/{orderId}")
+    @GetMapping("/by-id/{orderId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Obtener orden por id numérico", description = "Clave `orderId` en base de datos.")
     @ApiResponses({
@@ -139,7 +139,7 @@ public class OrderController {
         return orderService.getOrderById(orderId);
     }
 
-    @DeleteMapping("/{orderId}")
+    @DeleteMapping("/by-id/{orderId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(
             summary = "Eliminar orden",

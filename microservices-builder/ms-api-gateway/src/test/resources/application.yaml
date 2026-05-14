@@ -4,3 +4,8 @@ eureka:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
+# Sin exportación de trazas en tests (no requiere Zipkin). En runtime ver README «Trazas distribuidas y Zipkin».
+management:
+  tracing:
+    export:
+      enabled: false

@@ -1,6 +1,6 @@
 # Microservicios intermedio
 
-Monorepo Maven (`microservices-builder`) con microservicios Spring Boot que colaboran entre sí. Este documento resume el **layout del proyecto** y describe en detalle el **flujo de creación de órdenes** en **ms-common-orders** y su integración con inventario (**ms-common-stock**).
+Monorepo Maven (`microservices-builder`) con microservicios Spring Boot que colaboran entre sí. Este documento resume el **layout del proyecto**, el **flujo de creación de órdenes** en **ms-common-orders** con inventario (**ms-common-stock**), y la **observabilidad HTTP** (trazas hacia **Zipkin** con Micrometer Tracing en Spring Boot 3).
 
 ---
 
@@ -35,13 +35,50 @@ No hay choque de puertos: **8080–8083** micros y descubrimiento; **9090** solo
 
 ---
 
+## Trazas distribuidas y Zipkin (Spring Boot 3)
+
+Las trazas distribuidas se envían a **Zipkin** usando:
+
+- **`micrometer-tracing-bridge-brave`**: integración **Micrometer Tracing** con **Brave** (modelo de spans compatible con Zipkin).
+- **`zipkin-reporter-brave`**: reporter que publica spans al endpoint HTTP de Zipkin (API v2).
+- **`spring-boot-starter-actuator`**: observabilidad; la exportación de trazas se configura bajo `management.*`.
+
+Los módulos **ms-common-orders**, **ms-common-stock**, **ms-common-products**, **ms-api-gateway** y **ms-discovery-server** incluyen esas dependencias y un bloque `management:` en su `application.yaml`.
+
+### Arrancar Zipkin (local)
+
+Imagen oficial, puerto estándar **9411**:
+
+```bash
+docker run -d --name zipkin -p 9411:9411 openzipkin/zipkin
+```
+
+Interfaz: **`http://localhost:9411`**. Las trazas aparecen al generar tráfico HTTP en los micros con el reporter activo.
+
+### Configuración relevante (YAML y variables)
+
+| Concepto | Detalle |
+|----------|---------|
+| Endpoint de envío | Propiedad **`management.zipkin.tracing.endpoint`**. Valor típico: `http://localhost:9411/api/v2/spans` (incluir siempre la ruta del API v2 de spans). |
+| Variable de entorno | **`ZIPKIN_ENDPOINT`**: sobrescribe el endpoint (p. ej. en Docker Compose: `http://zipkin:9411/api/v2/spans`). |
+| Muestreo | **`management.tracing.sampling.probability`** / variable **`TRACING_SAMPLE_PROBABILITY`** (0.0–1.0). En desarrollo suele ir en **1.0** (todas las peticiones). |
+
+Si los micros corren **en tu máquina** y Zipkin está en Docker con **`-p 9411:9411`**, `localhost:9411` en el endpoint por defecto es correcto. Si los micros van **dentro de contenedores** en otra red, define **`ZIPKIN_ENDPOINT`** con el host que resuelva dentro de esa red (no `localhost` del contenedor del micro).
+
+### Leer mejor las trazas en Zipkin
+
+- **Rutas REST explícitas** en los controladores (p. ej. `POST /api/order/create`, `GET /api/order/list`, `GET /api/stock/query/codes`) para que el span **servidor** muestre la operación con claridad.
+- **Cliente HTTP (WebClient)** en **ms-common-orders** hacia stock: convención **`DescriptiveClientRequestObservationConvention`** (`com.orders.config`) que nombra los spans salientes como **`webclient get /api/stock/...`** / **`webclient post /api/stock/...`**, distinguibles de los spans **`http …`** de entrada al mismo micro.
+
+---
+
 ## API Gateway (`ms-api-gateway`, puerto **9090**)
 
 El **API Gateway** es el **único punto de entrada HTTP** que quieres dar a clientes externos (Postman): misma familia de rutas que ya tienen los micros (`/api/product/...`, `/api/order/...`, `/api/stock/...`), pero el host y el puerto son siempre **`http://localhost:9090`**.
 
 ### Qué logra (objetivo)
 
-- **Una base URL** para “enmascarar” el reparto: tú llamas `http://localhost:9090/api/order`, el gateway elige una instancia de **ms-common-orders** registrada en Eureka (`lb://ms-common-orders`) y reenvía la petición.
+- **Una base URL** para “enmascarar” el reparto: tú llamas por ejemplo `http://localhost:9090/api/order/create`, el gateway elige una instancia de **ms-common-orders** registrada en Eureka (`lb://ms-common-orders`) y reenvía la petición.
 - **Descubrimiento + balanceo** hacia réplicas del mismo servicio, sin que el cliente conozca 8081, 557xx, etc.
 - **Proxy opcional al panel Eureka** bajo el mismo origen: `http://localhost:9090/eureka/web` (y `/eureka/**` para recursos estáticos del servidor en **8083**).
 
@@ -51,10 +88,10 @@ No sustituye a Eureka ni a los micros: deben estar levantados y registrados; el 
 
 | Acción | URL vía gateway |
 |--------|------------------|
-| Crear orden | `POST http://localhost:9090/api/order` |
-| Listar órdenes | `GET http://localhost:9090/api/order` |
-| Stock (p. ej. códigos) | `GET http://localhost:9090/api/stock/codes?...` |
-| Productos | `GET` / `POST` `http://localhost:9090/api/product` … |
+| Crear orden | `POST http://localhost:9090/api/order/create` |
+| Listar órdenes | `GET http://localhost:9090/api/order/list` |
+| Stock (p. ej. códigos) | `GET http://localhost:9090/api/stock/query/codes?codes=...` |
+| Productos | `GET http://localhost:9090/api/product/list`, `POST http://localhost:9090/api/product/create`, etc. |
 | Panel Eureka | `http://localhost:9090/eureka/web` |
 
 Llamar **directo** a `http://localhost:8081/...` sigue siendo válido para depurar una sola instancia; para el comportamiento “curso / producción simplificada”, usa **9090**.
@@ -63,7 +100,7 @@ Configuración: `microservices-builder/ms-api-gateway/src/main/resources/applica
 
 ---
 
-## Flujo de creación de una orden (`POST /api/order`)
+## Flujo de creación de una orden (`POST /api/order/create`)
 
 Todo ocurre en **ms-common-orders**, salvo las llamadas HTTP a **ms-common-stock**. La entrada es un `DOrderRequest` con lista `orderLineItemsList` (código de producto + cantidad por línea).
 
@@ -72,7 +109,7 @@ Todo ocurre en **ms-common-orders**, salvo las llamadas HTTP a **ms-common-stock
 1. **HTTP entra** → `OrderController.createOrder` registra en log cuántas líneas trae el cuerpo.
 2. **Dominio en memoria** → `OrderService.createOrder` mapea el DTO a entidad y asigna un `orderNumber` (UUID). Aún **no** hay fila en base de datos de órdenes.
 3. **Agregación por SKU** → Se suman cantidades por código (varias líneas pueden repetir el mismo producto). Si no queda ningún código válido → **400 Bad Request**.
-4. **Solo lectura en inventario** → `StockWebClient.evaluateEligibility` llama a stock con **GET** `/api/stock/codes?codes=...` y compara, por cada código, la **demanda total** pedida frente a la **cantidad en almacén** devuelta. No se descuenta nada todavía.
+4. **Solo lectura en inventario** → `StockWebClient.evaluateEligibility` llama a stock con **GET** `/api/stock/query/codes?codes=...` y compara, por cada código, la **demanda total** pedida frente a la **cantidad en almacén** devuelta. No se descuenta nada todavía.
 5. **Filtrado de líneas** → Solo se conservan líneas cuyo código está en el conjunto “elegible”. Los motivos de exclusión (sin registro, stock insuficiente, etc.) se acumulan como textos en `StockEligibility.skippedLineReasons`.
 6. **Si ninguna línea pasó** → **409 Conflict** con el detalle unido de exclusiones (error de negocio local; no viene del POST deduct).
 7. **Inventario parcial** → Si al menos una línea es elegible pero hubo exclusiones, se sigue adelante; las exclusiones pueden devolverse al cliente en la respuesta (ver más abajo).
@@ -84,7 +121,7 @@ Todo ocurre en **ms-common-orders**, salvo las llamadas HTTP a **ms-common-stock
 
 ```
 Cliente
-   │ POST /api/order
+   │ POST /api/order/create
    ▼
 OrderController ──────────────────────────────────────────────┐
    │                                                          │
@@ -95,7 +132,7 @@ OrderService                                                  │
    │                                                          │
    │    ┌───────────────────────────────────────────┐         │
    │    │ StockWebClient.evaluateEligibility        │         │
-   │    │   GET stock → /api/stock/codes            │         │
+   │    │   GET stock → /api/stock/query/codes      │         │
    │    │   (solo lectura; compara demanda vs stock)│         │
    │    └───────────────────────────────────────────┘         │
    │                                                          │
@@ -121,7 +158,7 @@ Definida en `StockWebClient` y propiedades `stock.service.paths.*`:
 
 | Paso              | Método HTTP | Ruta en stock        | Efecto                                           |
 |-------------------|-------------|----------------------|--------------------------------------------------|
-| Elegibilidad      | GET         | `/api/stock/codes`   | Consulta cantidades; **no modifica** inventario. |
+| Elegibilidad      | GET         | `/api/stock/query/codes` | Consulta cantidades; **no modifica** inventario. |
 | Descontar         | POST        | `/api/stock/deduct`  | Descuenta en BD de forma acordada con el micro de stock (409 si no puede). |
 | Compensar         | POST        | `/api/stock/restore` | Devuelve unidades si hubo deduct y falló el guardado de la orden. |
 | (rollback lógico) |
@@ -168,11 +205,11 @@ Los errores **puremente locales** (400, 409 sin líneas) siguen el formato está
 
 En **orders** y **StockWebClient** hay `log.info` con prefijos coherentes:
 
-- `POST /api/order: inicio createOrder` — entrada al controlador.
+- `POST /api/order/create: inicio createOrder` — entrada al controlador.
 - `createOrder: ...` — fases numeradas en `OrderService` (preparación, elegibilidad, deduct, save, compensación).
 - `[stock] ...` — llamadas y resultados en `StockWebClient` (GET códigos, POST deduct/restore).
 
-Filtra por `orderNumber` o por `[stock]` para aislar el flujo en consola.
+Filtra por `orderNumber` o por `[stock]` para aislar el flujo en consola. Para **latencias y dependencias HTTP** entre micros, usa **Zipkin** (sección anterior): allí verás el mismo flujo como traza enlazada, no solo líneas de log.
 
 ---
 
@@ -203,5 +240,6 @@ La descripción de códigos de respuesta del **POST crear orden** está anotada 
 - Flujo y comentarios paso a paso: `ms-common-orders/.../OrderService.java` → método `createOrder`.
 - Cliente HTTP y manejo de errores: `StockWebClient.java`.
 - Respuesta con exclusiones: `DOrderResponse.inventoryExclusions`.
+- Trazas Zipkin (Micrometer + Brave) y bean `ClientRequestObservationConvention`: `ms-common-orders/.../WebClientConfig.java`, `DescriptiveClientRequestObservationConvention.java`. Bloque `management:` en cada `application.yaml` de micro y gateway.
 
 Si incorporas **Eureka**, recuerda que el descubrimiento no sustituye por sí solo las URLs del `WebClient` de stock: `stock.service.base-url` sigue siendo la configuración activa salvo que migres a resolución por nombre de servicio y balanceo.

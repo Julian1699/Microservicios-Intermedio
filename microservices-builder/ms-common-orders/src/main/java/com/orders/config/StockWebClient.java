@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
  * <p>
  * Flujo típico al crear una orden:
  * <ol>
- *   <li>{@link #evaluateEligibility(Map)} — GET a {@code /api/stock/codes} para saber qué códigos tienen cantidad suficiente.</li>
+ *   <li>{@link #evaluateEligibility(Map)} — GET a {@code /api/stock/query/codes} para saber qué códigos tienen cantidad suficiente.</li>
  *   <li>{@link #deductQuantities(Map)} — POST a {@code /api/stock/deduct} para descontar lo ya validado.</li>
  *   <li>Si falla el guardado de la orden, el servicio puede llamar {@link #restoreQuantities(Map)} — POST a {@code /api/stock/restore}.</li>
  * </ol>
@@ -68,7 +68,7 @@ public class StockWebClient {
      */
     public StockWebClient(
             @Qualifier("stockRestClient") WebClient stockRestClient,
-            @Value("${stock.service.paths.codes:/api/stock/codes}") String stockCodesPath,
+            @Value("${stock.service.paths.codes:/api/stock/query/codes}") String stockCodesPath,
             @Value("${stock.service.paths.deduct:/api/stock/deduct}") String stockDeductPath,
             @Value("${stock.service.paths.restore:/api/stock/restore}") String stockRestorePath) {
         this.stockRestClient = stockRestClient;

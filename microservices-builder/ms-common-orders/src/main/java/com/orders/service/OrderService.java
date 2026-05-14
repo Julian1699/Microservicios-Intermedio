@@ -62,7 +62,7 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
             "La orden debe incluir códigos de producto y cantidad mayor a cero en cada línea.");
         }
-        // 3) Solo lectura en ms-common-stock: GET /api/stock/codes → compara demanda vs cantidad en almacén.
+        // 3) Solo lectura en ms-common-stock: GET /api/stock/query/codes → compara demanda vs cantidad en almacén.
         log.info("createOrder: validando inventario (solo lectura). orderNumber={} demandaPorCodigo={}",
                 order.getOrderNumber(), requestedQuantityByProductCode);
         StockEligibility inventoryEligibility = stockWebClient.evaluateEligibility(requestedQuantityByProductCode);

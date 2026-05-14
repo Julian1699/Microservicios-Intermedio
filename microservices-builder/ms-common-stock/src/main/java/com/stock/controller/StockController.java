@@ -36,7 +36,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(
         name = "Inventario",
         description = """
-                Consulta por códigos, movimientos masivos (`deduct` / `restore`) y CRUD de filas en **`/rows`**.
+                Consulta por códigos (`/query/codes`), movimientos (`/deduct`, `/restore`) y CRUD de fila en **`/row`**.
 
                 Los **400** / **409** documentados provienen de `StockService` (`ResponseStatusException`). \
                 Un **400** adicional puede producirlo Spring si el JSON del cuerpo no es válido.""")
@@ -48,7 +48,7 @@ public class StockController {
         this.stockService = stockService;
     }
 
-    @GetMapping
+    @GetMapping("/list")
     @ResponseStatus(HttpStatus.OK)
     @Operation(
             summary = "Listar filas de stock (paginado)",
@@ -64,7 +64,7 @@ public class StockController {
         return stockService.findAllEntries(pageable);
     }
 
-    @GetMapping("/codes")
+    @GetMapping("/query/codes")
     @ResponseStatus(HttpStatus.OK)
     @Operation(
             summary = "Consultar stocks por códigos",
@@ -119,7 +119,7 @@ public class StockController {
         stockService.restore(lines);
     }
 
-    @GetMapping("/rows/{stockId}")
+    @GetMapping("/row/{stockId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Obtener fila por stockId")
     @ApiResponses({
@@ -133,7 +133,7 @@ public class StockController {
         return stockService.findEntryById(stockId);
     }
 
-    @PostMapping("/rows")
+    @PostMapping("/row")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Crear fila de stock", description = "Código único en BD (`existsByCode`).")
     @ApiResponses({
@@ -155,7 +155,7 @@ public class StockController {
         return stockService.createEntry(request);
     }
 
-    @PutMapping("/rows/{stockId}")
+    @PutMapping("/row/{stockId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Actualizar fila", description = "Merge parcial; `request` null devuelve estado actual.")
     @ApiResponses({
@@ -172,7 +172,7 @@ public class StockController {
         return stockService.updateEntry(stockId, request);
     }
 
-    @DeleteMapping("/rows/{stockId}")
+    @DeleteMapping("/row/{stockId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Eliminar fila por stockId")
     @ApiResponses({

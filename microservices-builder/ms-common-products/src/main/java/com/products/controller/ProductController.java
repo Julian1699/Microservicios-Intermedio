@@ -34,11 +34,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
                 CRUD sobre MongoDB (`product`). El **productId** lo genera la base al crear.
 
                 **Respuestas**
-                — **POST**: **201** sin cuerpo.
-                — **GET** (lista): **200** con `Page` de Spring (`content` = `ProductResponse`).
-                — **GET** `/{productId}`: **200** + `ProductResponse`, o **404** si no existe.
-                — **PUT**: **200** sin cuerpo, o **404** si no existe.
-                — **DELETE**: **204** sin cuerpo, o **404** si no existe.
+                — **POST** `/create`: **201** sin cuerpo.
+                — **GET** `/list`: **200** con `Page` de Spring (`content` = `ProductResponse`).
+                — **GET** `/by-id/{productId}`: **200** + `ProductResponse`, o **404** si no existe.
+                — **PUT** `/by-id/{productId}`: **200** sin cuerpo, o **404** si no existe.
+                — **DELETE** `/by-id/{productId}`: **204** sin cuerpo, o **404** si no existe.
 
                 En **POST**/**PUT**, un **400** solo aparece si Spring no puede leer el JSON del cuerpo \
                 (p. ej. sintaxis inválida); este servicio no aplica validaciones Bean Validation propias que devuelvan 400.""")
@@ -47,7 +47,7 @@ public class ProductController {
     @Autowired
     private ProductService productService;
 
-    @PostMapping
+    @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
             summary = "Crear producto",
@@ -70,7 +70,7 @@ public class ProductController {
         productService.createProduct(productRequest);
     }
 
-    @GetMapping
+    @GetMapping("/list")
     @ResponseStatus(HttpStatus.OK)
     @Operation(
             summary = "Listar productos (paginado)",
@@ -89,7 +89,7 @@ public class ProductController {
         return productService.getAllProducts(page, size);
     }
 
-    @GetMapping("/{productId}")
+    @GetMapping("/by-id/{productId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Obtener producto por id", description = "Devuelve el documento o **404** si el id no existe.")
     @ApiResponses({
@@ -105,7 +105,7 @@ public class ProductController {
         return productService.getProductById(productId);
     }
 
-    @PutMapping("/{productId}")
+    @PutMapping("/by-id/{productId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(
             summary = "Actualizar producto",
@@ -129,7 +129,7 @@ public class ProductController {
         productService.updateProduct(productId, productRequest);
     }
 
-    @DeleteMapping("/{productId}")
+    @DeleteMapping("/by-id/{productId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Eliminar producto", description = "**204** si existía y se borró; **404** si el id no existe.")
     @ApiResponses({
