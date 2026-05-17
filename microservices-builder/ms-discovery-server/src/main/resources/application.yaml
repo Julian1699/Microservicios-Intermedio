@@ -9,6 +9,11 @@ eureka:
   client:
     register-with-eureka: false
     fetch-registry: false
+    # Sin esto, el servidor intenta replicar con peers en localhost:8761 (puerto por defecto) y falla
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    enable-self-preservation: false
 ---
 # Trazas → Zipkin: Micrometer Tracing + Brave (micrometer-tracing-bridge-brave, zipkin-reporter-brave, Actuator).
 # Endpoint: management.zipkin.tracing.endpoint; variable ZIPKIN_ENDPOINT (URL completa …/api/v2/spans).

@@ -27,7 +27,7 @@ public class ApplicationStartup implements ApplicationListener<ApplicationReadyE
             try {
                 insertData.insertData();
             } catch (Exception exception) {
-                log.warn("There was a problem loading initial stock test data", exception);
+                log.warn("Error al cargar datos de prueba de stock: {}", exception.getMessage(), exception);
             }
         }
     }

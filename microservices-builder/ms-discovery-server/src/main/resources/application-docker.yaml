@@ -1,0 +1,8 @@
+eureka:
+  instance:
+    hostname: ms-discovery-server
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://ms-discovery-server:8083/eureka/

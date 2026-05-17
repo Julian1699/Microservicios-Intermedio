@@ -1,0 +1,11 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://mongo:mongo@mongodb:27017/ms_common_products?authSource=admin
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://ms-discovery-server:8083/eureka
+  instance:
+    prefer-ip-address: true

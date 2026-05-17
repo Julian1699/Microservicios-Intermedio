@@ -1,0 +1,181 @@
+# Stack local listo para otro desarrollador: docker compose up --build
+#
+# Orden de arranque (depends_on + healthchecks):
+#   1) postgres, mongodb, zipkin
+#   2) ms-discovery-server (Eureka)
+#   3) ms-common-stock (carga csv/stock.csv con perfil test-data) y ms-common-products en paralelo
+#   4) ms-common-orders (necesita stock con datos ya cargados)
+#   5) ms-api-gateway (cuando todos los micros están UP)
+#
+# Rutas: README → Docker Compose → «URLs explícitas»
+# Borrar solo este proyecto: docker compose down -v --rmi local
+
+name: microservicios-intermedio
+
+x-microservice-env: &microservice-env
+  SPRING_PROFILES_ACTIVE: docker
+  ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+  TRACING_SAMPLE_PROBABILITY: "1.0"
+
+x-health-micro: &health-micro
+  interval: 15s
+  timeout: 5s
+  retries: 15
+  start_period: 120s
+
+services:
+  # --- Fase 1: infraestructura ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "mongodb://mongo:mongo@localhost:27017/admin",
+          "--eval",
+          "db.runCommand({ ping: 1 }).ok",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+
+  # --- Fase 2: descubrimiento ---
+  ms-discovery-server:
+    build:
+      context: ./microservices-builder
+      dockerfile: ms-discovery-server/Dockerfile
+    container_name: discovery-server
+    environment:
+      <<: *microservice-env
+    ports:
+      - "8083:8083"
+    depends_on:
+      zipkin:
+        condition: service_started
+    healthcheck:
+      <<: *health-micro
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+
+  # --- Fase 3: micros de negocio (stock carga datos de prueba antes de quedar healthy) ---
+  ms-common-stock:
+    build:
+      context: ./microservices-builder
+      dockerfile: ms-common-stock/Dockerfile
+    container_name: ms-common-stock
+    environment:
+      <<: *microservice-env
+      # Carga csv/stock.csv al arrancar (perfil test-data); sin esto la tabla stock queda vacía
+      SPRING_PROFILES_ACTIVE: docker,test-data
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ms-discovery-server:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-micro
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+
+  ms-common-products:
+    build:
+      context: ./microservices-builder
+      dockerfile: ms-common-products/Dockerfile
+    container_name: ms-common-products
+    environment:
+      <<: *microservice-env
+    ports:
+      - "8080:8080"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      ms-discovery-server:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-micro
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+
+  # --- Fase 4: órdenes (llama a stock por HTTP; stock debe estar UP y con inventario) ---
+  ms-common-orders:
+    build:
+      context: ./microservices-builder
+      dockerfile: ms-common-orders/Dockerfile
+    container_name: ms-common-orders
+    environment:
+      <<: *microservice-env
+      # WebClient → stock (sin :8082 Spring usa puerto HTTP 80 y falla con Connection refused)
+      STOCK_SERVICE_BASE_URL: http://ms-common-stock:8082
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ms-discovery-server:
+        condition: service_healthy
+      ms-common-stock:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-micro
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+
+  # --- Fase 5: entrada única HTTP ---
+  ms-api-gateway:
+    build:
+      context: ./microservices-builder
+      dockerfile: ms-api-gateway/Dockerfile
+    container_name: api-gateway-server
+    environment:
+      <<: *microservice-env
+    ports:
+      - "9090:9090"
+    depends_on:
+      ms-discovery-server:
+        condition: service_healthy
+      ms-common-stock:
+        condition: service_healthy
+      ms-common-products:
+        condition: service_healthy
+      ms-common-orders:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-micro
+      test: ["CMD", "curl", "-f", "http://localhost:9090/actuator/health"]
+
+volumes:
+  postgres_data:
+  mongodb_data:

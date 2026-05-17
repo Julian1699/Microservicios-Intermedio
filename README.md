@@ -8,13 +8,15 @@ Monorepo Maven (`microservices-builder`) con microservicios Spring Boot que cola
 
 ```
 microservicios-intermedio/
+├── docker-compose.yml       # Postgres, Mongo, Zipkin, micros y gateway
+├── docker/postgres/init/    # Scripts de creación de bases
 └── microservices-builder/   # POM padre (agrupa todos los módulos)
     ├── pom.xml              # BOM Spring Cloud + lista de módulos
-    ├── ms-discovery-server/ # Eureka (Netflix), descubrimiento de servicios
-    ├── ms-api-gateway/      # Spring Cloud Gateway (rutas lb:// + proxy Eureka)
-    ├── ms-common-products/  # Catálogo (MongoDB)
-    ├── ms-common-stock/     # Inventario (PostgreSQL + Flyway)
-    └── ms-common-orders/    # Órdenes (PostgreSQL); llama a stock por HTTP
+    ├── ms-discovery-server/ # Eureka + Dockerfile
+    ├── ms-api-gateway/      # Gateway + Dockerfile
+    ├── ms-common-products/  # Catálogo (MongoDB) + Dockerfile
+    ├── ms-common-stock/     # Inventario (PostgreSQL + Flyway) + Dockerfile
+    └── ms-common-orders/    # Órdenes (PostgreSQL); llama a stock por HTTP + Dockerfile
 ```
 
 ---
@@ -31,7 +33,7 @@ microservicios-intermedio/
 
 No hay choque de puertos: **8080–8083** micros y descubrimiento; **9090** solo el gateway.
 
-**Orders → stock** sigue yendo en directo a stock según `stock.service.base-url` (por defecto `http://localhost:8082` en `ms-common-orders`). El gateway **no** cambia eso; solo afecta a quien llame a la API pública por `http://localhost:9090/...`.
+**Orders → stock** va en directo según `stock.service.base-url` (local: `http://localhost:8082`; Docker: `http://ms-common-stock:8082` — **siempre con puerto**, el gateway no interviene en esa llamada).
 
 ---
 
@@ -53,7 +55,7 @@ Imagen oficial, puerto estándar **9411**:
 docker run -d --name zipkin -p 9411:9411 openzipkin/zipkin
 ```
 
-Interfaz: **`http://localhost:9411`**. Las trazas aparecen al generar tráfico HTTP en los micros con el reporter activo.
+Interfaz: **`http://localhost:9411`**. Las trazas aparecen al generar tráfico HTTP en los micros con el reporter activo. Si usas **`docker compose up`** desde la raíz del repo, Zipkin ya queda en ese mismo puerto (**9411**) junto al resto del stack (ver sección Docker Compose).
 
 ### Configuración relevante (YAML y variables)
 
@@ -72,7 +74,169 @@ Si los micros corren **en tu máquina** y Zipkin está en Docker con **`-p 9411:
 
 ---
 
+## Docker Compose (stack completo en local)
+
+Desde la carpeta **`microservicios-intermedio/`** (raíz del repo, donde está `docker-compose.yml`), el comando:
+
+```bash
+docker compose up --build
+```
+
+(construye las imágenes Maven la primera vez y) **levanta en tu máquina**, publicados en **localhost**:
+
+| Componente | ¿Se levanta con Compose? |
+|------------|---------------------------|
+| **PostgreSQL** (dos bases: órdenes y stock) | Sí (`postgres`) |
+| **MongoDB** (catálogo productos) | Sí (`mongodb`) |
+| **Zipkin** (UI de trazas) | Sí (`zipkin`) |
+| **Eureka** (`ms-discovery-server`) | Sí |
+| **ms-common-stock**, **ms-common-products**, **ms-common-orders** | Sí |
+| **API Gateway** (`ms-api-gateway`) | Sí, puerto **9090** |
+
+Para una primera ejecución o tras cambiar código Java, usa **`docker compose up --build`** (o `docker compose build` antes). Si solo ejecutas `docker compose up` sin `--build`, Docker puede reutilizar imágenes ya construidas.
+
+Las **APIs REST de negocio** están pensadas para consumirse por **`http://localhost:9090/...`** (gateway). Los puertos **8080–8083** siguen abiertos para depuración directa al micro y para **Swagger** (ver más abajo). **No hay autenticación** en el gateway en este proyecto; el “aislamiento” es organizativo: un solo origen HTTP público recomendado (**9090**).
+
+Un único **`docker-compose.yml`** en la raíz agrupa **infraestructura** y **aplicación**. **Swagger** no pasa por el gateway: cada micro expone su propia UI en su puerto (**8080**, **8081**, **8082**).
+
+### Por qué está organizado así
+
+| Decisión | Motivo |
+|----------|--------|
+| **Un solo `docker-compose.yml`** | Un comando (`docker compose up`) orquesta todo; no hace falta combinar varios archivos con `include`. Para levantar solo infra, se nombran los servicios (ver comandos). |
+| **Un `Dockerfile` por módulo** | Cada micro/gateway tiene su imagen en su carpeta (`ms-common-orders/Dockerfile`, etc.). Es más claro en un curso/monorepo, permite ajustar un servicio sin tocar los demás y el `docker compose build` de un solo servicio es explícito. El **contexto de build** sigue siendo `microservices-builder/` porque Maven necesita el POM padre y los módulos hermanos. |
+| **Perfil `application-docker.yaml`** | URLs internas de Docker (`postgres`, `mongodb`, `ms-discovery-server`, …) sin cambiar el YAML que usas al correr en IntelliJ. |
+
+Estructura relevante:
+
+```
+microservicios-intermedio/
+├── docker-compose.yml              # infra + todos los servicios
+├── docker/postgres/init/           # creación de BDs al arrancar Postgres
+└── microservices-builder/
+    ├── ms-discovery-server/Dockerfile
+    ├── ms-api-gateway/Dockerfile
+    ├── ms-common-orders/Dockerfile
+    ├── ms-common-stock/Dockerfile
+    ├── ms-common-products/Dockerfile
+    └── */src/main/resources/application-docker.yaml
+```
+
+### Comandos
+
+Desde la **raíz** del repositorio (`microservicios-intermedio/`):
+
+```bash
+# Primera vez (o tras cambiar código Java): compila imágenes y levanta todo con datos de prueba en stock
+docker compose up --build
+
+# En segundo plano
+docker compose up --build -d
+
+# Solo infra: Postgres, Mongo y Zipkin (micros en IDE con localhost:5432 / 27017 / 9411)
+docker compose up -d postgres mongodb zipkin
+
+# Reconstruir un solo micro tras cambiar su código
+docker compose up --build -d ms-common-orders
+
+# Parar este proyecto: contenedores + red (volúmenes de BD del proyecto se conservan)
+docker compose down
+
+# También borrar volúmenes declarados en este compose (BD en blanco al volver a subir)
+docker compose down -v
+
+# Como lo anterior + quitar imágenes construidas por ESTE compose (Dockerfiles Java).
+# No toca el resto de imágenes de tu máquina. Evita: docker system prune -a (global).
+docker compose down -v --rmi local
+```
+
+### Parar y borrar solo este proyecto (Compose)
+
+**Ámbito:** Ejecuta los comandos **solo en la carpeta** donde está este `docker-compose.yml` (`microservicios-intermedio/`). Docker Compose agrupa recursos por **nombre de proyecto** (aquí `name: microservicios-intermedio` en el YAML).
+
+Lo siguiente **no toca** el resto de imágenes, contenedores ni redes que tengas en Docker por otros trabajos:
+
+| Objetivo | Comando |
+|----------|---------|
+| Parar y eliminar **contenedores** y **red** de **este** compose; conservar datos Postgres/Mongo en volúmenes del proyecto | `docker compose down` |
+| Igual y además borrar los **volúmenes declarados aquí** (BD en blanco la próxima vez que subas el stack) | `docker compose down -v` |
+| Igual que la primera fila **y** quitar las **imágenes que este mismo archivo construyó** (`build:` de discovery, gateway, micros). **No** elimina `postgres:16-alpine`, `mongo:7` ni `openzipkin/zipkin` salvo que compartan etiqueta rara—lo habitual es que solo desaparezcan las imágenes generadas por el build Maven | `docker compose down --rmi local` |
+| Volúmenes del proyecto **y** esas imágenes construidas por Compose | `docker compose down -v --rmi local` |
+
+**No uses para esto** comandos globales como `docker system prune -a`, `docker image prune -a` o borrar todo el “Docker Desktop cleanup”: ahí sí pueden entrar **otras imágenes y contenedores importantes** que no tienen que ver con este curso.
+
+La opción `--rmi local` aplica solo a imágenes asociadas a los **servicios definidos en este compose** con `build:`; tus demás imágenes locales siguen intactas si no forman parte de este proyecto.
+
+### URLs explícitas con Docker Compose en marcha
+
+#### API Gateway — puerto **9090** (entrada recomendada para REST)
+
+**Host y puerto:** `http://localhost:9090`
+
+Todas las rutas siguientes son relativas a esa base (ejemplo: crear orden → `POST http://localhost:9090/api/order/create`).
+
+| Prefijo / recurso | Destino (vía Eureka `lb://`) | Ejemplos de ruta (tras `http://localhost:9090`) |
+|-------------------|------------------------------|------------------------------------------------|
+| **Productos** | `ms-common-products` | `GET /api/product/list`, `POST /api/product/create`, `GET /api/product/by-id/{productId}`, `PUT /api/product/by-id/{productId}`, `DELETE /api/product/by-id/{productId}` |
+| **Órdenes** | `ms-common-orders` | `POST /api/order/create`, `GET /api/order/list`, `GET /api/order/by-number/{orderNumber}`, `GET /api/order/by-id/{orderId}`, `DELETE /api/order/by-id/{orderId}` |
+| **Stock** | `ms-common-stock` | `GET /api/stock/list`, `GET /api/stock/query/codes?codes=SKU1&codes=SKU2`, `POST /api/stock/deduct`, `POST /api/stock/restore`, CRUD bajo `/api/stock/row` y `/api/stock/row/{stockId}` |
+| **Panel Eureka** (proxy al servidor en 8083) | `ms-discovery-server` | **`http://localhost:9090/eureka/web`** · recursos del panel bajo **`http://localhost:9090/eureka/**`** |
+
+El gateway **no** enruta Swagger ni OpenAPI de los micros; usa la tabla siguiente para la documentación interactiva.
+
+#### Swagger UI y OpenAPI (directo a cada micro)
+
+SpringDoc usa **`/swagger-ui.html`** y **`/v3/api-docs`** en cada servicio. Con Docker Compose:
+
+| Microservicio | Swagger UI (URL completa) | OpenAPI JSON (URL completa) |
+|---------------|---------------------------|------------------------------|
+| **ms-common-products** | `http://localhost:8080/swagger-ui.html` | `http://localhost:8080/v3/api-docs` |
+| **ms-common-orders** | `http://localhost:8081/swagger-ui.html` | `http://localhost:8081/v3/api-docs` |
+| **ms-common-stock** | `http://localhost:8082/swagger-ui.html` | `http://localhost:8082/v3/api-docs` |
+
+**ms-api-gateway** y **ms-discovery-server** no exponen Swagger de negocio aquí.
+
+Para llamadas “como cliente externo”, orienta Postman u otros clientes a **`http://localhost:9090`**; Swagger en **8080–8082** sirve para explorar y probar contratos contra ese mismo puerto del micro.
+
+#### Zipkin — puerto **9411**
+
+| Qué | URL completa |
+|-----|----------------|
+| **Interfaz web** (buscar trazas, timeline) | **`http://localhost:9411`** |
+| **API de spans v2** (exportación; referencia) | **`http://localhost:9411/api/v2/spans`** |
+
+Dentro de Docker Compose los micros usan **`ZIPKIN_ENDPOINT=http://zipkin:9411/api/v2/spans`**. En el navegador del host abre siempre **`http://localhost:9411`**.
+
+#### Eureka y bases de datos
+
+| Servicio | URL / host |
+|----------|------------|
+| Eureka sin gateway | `http://localhost:8083` · panel: `http://localhost:9090/eureka/web` |
+| PostgreSQL | `localhost:5432` (usuario/contraseña por defecto en YAML: `postgres` / `postgres`) |
+| MongoDB | `localhost:27017` (credenciales root como en `application.yaml`) |
+
+#### Postgres (stock)
+
+BD **`ms_common_stock`**, tabla **`stock`**, usuario/contraseña **`postgres`** / **`postgres`**. Con Compose, **ms-common-stock** carga `csv/stock.csv` al arrancar (perfil **`test-data`**, ya configurado en `docker-compose.yml`).
+
+```bash
+docker exec -it postgres psql -U postgres -d ms_common_stock -c "SELECT * FROM stock;"
+```
+
+### Build manual de una imagen (opcional)
+
+Contexto siempre la carpeta **`microservices-builder`**:
+
+```bash
+cd microservices-builder
+docker build -f ms-common-orders/Dockerfile -t ms-common-orders:local .
+```
+
+---
+
 ## API Gateway (`ms-api-gateway`, puerto **9090**)
+
+Las rutas HTTP públicas recomendadas para REST llevan el prefijo **`http://localhost:9090`** (lista detallada en **Docker Compose → URLs explícitas con Docker Compose en marcha**).
 
 El **API Gateway** es el **único punto de entrada HTTP** que quieres dar a clientes externos (Postman): misma familia de rutas que ya tienen los micros (`/api/product/...`, `/api/order/...`, `/api/stock/...`), pero el host y el puerto son siempre **`http://localhost:9090`**.
 
@@ -241,5 +405,6 @@ La descripción de códigos de respuesta del **POST crear orden** está anotada 
 - Cliente HTTP y manejo de errores: `StockWebClient.java`.
 - Respuesta con exclusiones: `DOrderResponse.inventoryExclusions`.
 - Trazas Zipkin (Micrometer + Brave) y bean `ClientRequestObservationConvention`: `ms-common-orders/.../WebClientConfig.java`, `DescriptiveClientRequestObservationConvention.java`. Bloque `management:` en cada `application.yaml` de micro y gateway.
+- Docker: `docker-compose.yml`, `Dockerfile` en cada módulo bajo `microservices-builder/`, perfiles `application-docker.yaml`.
 
 Si incorporas **Eureka**, recuerda que el descubrimiento no sustituye por sí solo las URLs del `WebClient` de stock: `stock.service.base-url` sigue siendo la configuración activa salvo que migres a resolución por nombre de servicio y balanceo.

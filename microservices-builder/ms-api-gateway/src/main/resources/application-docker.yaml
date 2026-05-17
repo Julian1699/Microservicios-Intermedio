@@ -1,0 +1,47 @@
+spring:
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: ms-common-products-root
+              uri: lb://ms-common-products
+              predicates:
+                - Path=/api/product
+            - id: ms-common-products-api
+              uri: lb://ms-common-products
+              predicates:
+                - Path=/api/product/**
+            - id: ms-common-orders-root
+              uri: lb://ms-common-orders
+              predicates:
+                - Path=/api/order
+            - id: ms-common-orders-api
+              uri: lb://ms-common-orders
+              predicates:
+                - Path=/api/order/**
+            - id: ms-common-stock-root
+              uri: lb://ms-common-stock
+              predicates:
+                - Path=/api/stock
+            - id: ms-common-stock-api
+              uri: lb://ms-common-stock
+              predicates:
+                - Path=/api/stock/**
+            - id: discovery-server-web
+              uri: http://ms-discovery-server:8083
+              predicates:
+                - Path=/eureka/web
+              filters:
+                - SetPath=/
+            - id: discovery-server-static
+              uri: http://ms-discovery-server:8083
+              predicates:
+                - Path=/eureka/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://ms-discovery-server:8083/eureka
+  instance:
+    prefer-ip-address: true

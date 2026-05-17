@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/ms_common_orders
+
+stock:
+  service:
+    # Sin :8082 el cliente usa el puerto HTTP por defecto (80) → Connection refused
+    base-url: http://ms-common-stock:8082
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://ms-discovery-server:8083/eureka
+  instance:
+    prefer-ip-address: true

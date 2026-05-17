@@ -2,7 +2,7 @@ package com.stock.config;
 
 import static com.fasterxml.jackson.core.JsonGenerator.Feature.IGNORE_UNKNOWN;
 
-import java.io.File;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 
@@ -34,21 +34,28 @@ public class InsertData {
     private final StockRepository stockRepository;
 
     public void insertData() {
-        log.info("Start processing stock seed data");
-        if (isProfileActive(TEST_DATA_PROFILE)) {
-            List<Stock> fromCsv = generateInitialConfiguration(Stock.class, STOCK_CSV);
-            for (Stock stock : fromCsv) {
-                if (stockRepository.findByCode(stock.getCode()).isPresent()) {
-                    continue;
-                }
-                try {
-                    stockRepository.save(stock);
-                } catch (Exception exception) {
-                    log.warn("Can not create stock with code {}", stock.getCode(), exception);
-                }
+        if (!isProfileActive(TEST_DATA_PROFILE)) {
+            return;
+        }
+        List<Stock> fromCsv = generateInitialConfiguration(Stock.class, STOCK_CSV);
+        int inserted = 0;
+        for (Stock stock : fromCsv) {
+            if (stock.getCode() == null || stock.getCode().isBlank()) {
+                continue;
+            }
+            if (stockRepository.findByCode(stock.getCode()).isPresent()) {
+                continue;
+            }
+            try {
+                stockRepository.save(stock);
+                inserted++;
+            } catch (Exception exception) {
+                log.warn("No se pudo insertar stock con código {}: {}", stock.getCode(), exception.getMessage());
             }
         }
-        log.info("Finish processing stock seed data");
+        if (inserted > 0) {
+            log.info("Datos de prueba: {} fila(s) insertadas desde {}", inserted, STOCK_CSV);
+        }
     }
 
     private boolean isProfileActive(String profileName) {
@@ -61,18 +68,22 @@ public class InsertData {
     }
 
     private <T> List<T> generateInitialConfiguration(Class<T> type, String fileName) {
-        try {
-            File file = new ClassPathResource(fileName).getFile();
+        ClassPathResource resource = new ClassPathResource(fileName);
+        if (!resource.exists()) {
+            log.error("No se encontró {} en classpath", fileName);
+            return Collections.emptyList();
+        }
+        try (InputStream inputStream = resource.getInputStream()) {
             MappingIterator<T> readValues = CsvMapper.builder()
                     .configure(IGNORE_UNKNOWN, true)
                     .enable(CsvParser.Feature.TRIM_SPACES)
                     .build()
                     .readerFor(type)
                     .with(CsvSchema.emptySchema().withHeader())
-                    .readValues(file);
+                    .readValues(inputStream);
             return readValues.readAll();
         } catch (Exception exception) {
-            log.error("Error occurred while loading object list from file {}", fileName, exception);
+            log.error("Error al leer {}: {}", fileName, exception.getMessage(), exception);
         }
         return Collections.emptyList();
     }
